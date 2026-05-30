@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# default screenshots (may be large binary files)
+/public/default-screens/**/*.png
+/public/default-screens/**/*.jpg

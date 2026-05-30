@@ -1,101 +1,187 @@
-import Image from "next/image";
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import AppSelector from '@/components/AppSelector'
+import ScreenUploader from '@/components/ScreenUploader'
+import ProgressStream from '@/components/ProgressStream'
+import { AppId, Platform, TimeFilter, ScreenAnalysis } from '@/types'
+import { APPS } from '@/lib/constants'
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+type Stage = 'select' | 'upload' | 'analyse' | 'error'
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+export default function HomePage() {
+  const router = useRouter()
+  const [stage, setStage] = useState<Stage>('select')
+  const [errorReason, setErrorReason] = useState<string>('')
+  const competitors: AppId[] = ['phonepe', 'gpay']
+  const [focusArea, setFocusArea] = useState('all')
+  const [platform, setPlatform] = useState<Platform>('both')
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('week')
+  const [screenAnalyses, setScreenAnalyses] = useState<ScreenAnalysis[]>([])
+
+  const TIME_LABELS: Record<TimeFilter, string> = {
+    today: 'Today',
+    week: 'This Week',
+    month: 'This Month',
+    all: 'All Time',
+  }
+
+  if (stage === 'select') {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+          <div className="mb-8 text-center">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <h1 className="text-4xl font-black text-white tracking-tight">ReviewSense</h1>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white uppercase tracking-wider">
+                Beta
+              </span>
+            </div>
+            <p className="text-lg text-gray-300 font-medium mb-1">
+              Real-time competitive intelligence for Paytm PMs
+            </p>
+            <p className="text-gray-500 text-sm max-w-md">
+              Scrape user reviews, detect pain points, surface competitor gaps — ship the right feature at the right time
+            </p>
+          </div>
+
+          <AppSelector
+            competitors={competitors}
+            focusArea={focusArea}
+            platform={platform}
+            timeFilter={timeFilter}
+            onToggleCompetitor={() => {}}
+            onSelectFocus={setFocusArea}
+            onSelectPlatform={setPlatform}
+            onSelectTimeFilter={setTimeFilter}
+          />
+
+          <button
+            onClick={() => { setScreenAnalyses([]); setStage('analyse') }}
+            className="mt-8 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-base transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Analyse Paytm vs PhonePe & GPay →
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <footer className="text-center py-4 text-xs text-gray-700 flex items-center justify-center gap-4">
+          <span>Built for Paytm PMs · Powered by GPT-4o mini</span>
+          <a href="/history" className="text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-2">
+            View history →
+          </a>
+        </footer>
+      </div>
+    )
+  }
+
+  if (stage === 'upload') {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          <button
+            onClick={() => setStage('select')}
+            className="text-gray-500 hover:text-gray-300 text-sm mb-6 flex items-center gap-1 transition-colors"
+          >
+            ← Back
+          </button>
+
+          <div className="mb-2 text-xs text-gray-600 font-medium uppercase tracking-wider">
+            Step 2 of 3 — Add Paytm screenshots (optional)
+          </div>
+
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: APPS.paytm.color }} />
+            <span className="text-white font-semibold">Paytm</span>
+            {competitors.length > 0 && (
+              <span className="text-gray-600 text-xs">
+                + {competitors.map(c => APPS[c].name).join(', ')} (competitor)
+              </span>
+            )}
+            <span className="text-gray-600 text-xs ml-auto">
+              {platform === 'android' ? '🤖 Android' : platform === 'ios' ? '🍎 iOS' : '⊕ Both'} · {TIME_LABELS[timeFilter]}
+            </span>
+          </div>
+
+          <ScreenUploader
+            appName={APPS.paytm.name}
+            platform={platform}
+            onAnalysed={analyses => {
+              setScreenAnalyses(analyses)
+              setStage('analyse')
+            }}
+            onSkip={() => {
+              setScreenAnalyses([])
+              setStage('analyse')
+            }}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </div>
+      </div>
+    )
+  }
+
+  if (stage === 'analyse') {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-xl">
+          <div className="text-center mb-8">
+            <h2 className="text-white font-bold text-xl mb-1">
+              {competitors.length > 0
+                ? `Competitive analysis: Paytm vs ${competitors.map(c => APPS[c].name).join(' & ')}`
+                : 'Analysing Paytm'}
+            </h2>
+            <p className="text-gray-500 text-sm">
+              {competitors.length > 0
+                ? 'Scraping all apps, tagging reviews, generating competitive insights…'
+                : 'Scraping reviews and identifying pain points…'}
+              {' '}Don't close the tab.
+            </p>
+          </div>
+          <ProgressStream
+            appId="paytm"
+            focusArea={focusArea}
+            platform={platform}
+            timeFilter={timeFilter}
+            competitors={competitors}
+            screenAnalyses={screenAnalyses}
+            onComplete={slug => router.push(`/report/${slug}`)}
+            onError={reason => { setErrorReason(reason ?? ''); setStage('error') }}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        </div>
+      </div>
+    )
+  }
+
+  // error stage
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4">
+      <div className="bg-gray-900 rounded-2xl border border-gray-800 p-8 max-w-md w-full text-center">
+        <div className="text-4xl mb-4">⚠</div>
+        <h2 className="text-white font-bold text-lg mb-2">Analysis failed</h2>
+        <p className="text-gray-500 text-sm mb-4">
+          {errorReason && errorReason !== 'Cancelled by user'
+            ? errorReason
+            : 'Something went wrong. This may be due to rate limiting or a network issue.'}
+        </p>
+        {errorReason === 'rate_limited' && (
+          <p className="text-amber-400 text-xs mb-4">
+            Google Play Store is rate-limiting requests. Wait 5–10 minutes and try again, or switch to iOS-only platform.
+          </p>
+        )}
+        {errorReason === 'no_reviews' && (
+          <p className="text-amber-400 text-xs mb-4">
+            No reviews found for this time window. Try selecting "This Month" or "All Time".
+          </p>
+        )}
+        <button
+          onClick={() => {
+            setStage('select')
+            setScreenAnalyses([])
+          }}
+          className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Try again
+        </button>
+      </div>
     </div>
-  );
+  )
 }

@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ReviewSense
 
-## Getting Started
+Turn app store reviews into UI improvement mockups for PMs.
 
-First, run the development server:
+## Local setup
 
 ```bash
+cp .env.local.example .env.local
+# Fill in your ANTHROPIC_API_KEY
+# For local dev, KV keys can be left blank (uses in-memory fallback)
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy to Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Push to GitHub
+2. Import project at vercel.com
+3. Add Storage → KV Database → link to project
+4. Add env var: `ANTHROPIC_API_KEY`
+5. KV vars auto-populate from storage link
+6. Deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Add screenshots for accurate mockups
 
-## Learn More
+Place default screenshots in:
+```
+public/default-screens/paytm/   (01.png, 02.png, ...)
+public/default-screens/phonepe/
+public/default-screens/gpay/
+```
 
-To learn more about Next.js, take a look at the following resources:
+These are used when no screenshots are uploaded.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Add more apps
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Add entry to `lib/constants.ts` APPS object
+2. Add AppId type to `types/index.ts`
+3. Screenshots optional but recommended
