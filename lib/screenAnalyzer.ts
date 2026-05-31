@@ -1,7 +1,8 @@
 import OpenAI from 'openai'
 import { ScreenAnalysis } from '@/types'
 
-const client = new OpenAI()
+let _client: OpenAI | null = null
+const getClient = () => _client ??= new OpenAI()
 
 export async function analyseScreenshots(
   base64Images: string[],
@@ -43,7 +44,7 @@ Return a JSON array with one object per screenshot.
 Return ONLY valid JSON. No explanation. No markdown.`
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 4096,
       messages: [{

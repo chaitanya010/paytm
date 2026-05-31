@@ -2,7 +2,8 @@ import OpenAI from 'openai'
 import { AppId, PainPoint, TaggedReview, CompetitorSentiment, CompetitiveInsight, SentimentBreakdown } from '@/types'
 import { APPS } from './constants'
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+let _client: OpenAI | null = null
+const getClient = () => _client ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // ── Sentiment helpers ─────────────────────────────────────────────────────────
 
@@ -171,7 +172,7 @@ sentimentPatterns: 2–4 bullet strings per app summarising dominant review patt
 Generate 5–7 insights covering the highest priority opportunities.`
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 3000,
       temperature: 0.2,

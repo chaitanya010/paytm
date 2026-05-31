@@ -1,7 +1,8 @@
 import OpenAI from 'openai'
 import { RawReview, TaggedReview, AppId, PainCategory } from '@/types'
 
-const client = new OpenAI()
+let _client: OpenAI | null = null
+const getClient = () => _client ??= new OpenAI()
 
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms))
@@ -80,7 +81,7 @@ Return ONLY a valid JSON array. No explanation. No markdown fences.`
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const response = await client.chat.completions.create({
+      const response = await getClient().chat.completions.create({
         model: 'gpt-4o-mini',
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
