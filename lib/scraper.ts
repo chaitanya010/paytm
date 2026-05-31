@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const store = require('app-store-scraper')
-
 import { RawReview, AppId, TimeFilter } from '@/types'
 import { APPS } from './constants'
 
@@ -69,34 +66,34 @@ export async function scrapePlayStore(
   }
 }
 
-// Apple's iTunes RSS API is unreliable for country='in'.
-// We try 'in' → 'us' → 'gb' in sequence and merge unique results.
+// Uses Apple's official public iTunes RSS JSON API — no npm library, no scraping.
+// Falls back across countries: India first, then US and GB for apps not listed in India.
 const AS_COUNTRIES = ['in', 'us', 'gb']
 
 export async function scrapeAppStore(
   appId: AppId,
-  pages = 3
+  pages = 5
 ): Promise<RawReview[]> {
   const app = APPS[appId]
   const seen = new Set<string>()
   const all: RawReview[] = []
 
   for (const country of AS_COUNTRIES) {
-    const countryResults = await scrapeAppStoreCountry(app.appStoreId, appId, country, pages)
+    const countryResults = await scrapeAppStoreCountryRSS(app.appStoreId, appId, country, pages)
     for (const r of countryResults) {
       if (!seen.has(r.id)) {
         seen.add(r.id)
         all.push(r)
       }
     }
-    if (all.length >= 50) break
-    await sleep(500)
+    if (all.length >= 100) break
+    await sleep(300)
   }
 
   return all
 }
 
-async function scrapeAppStoreCountry(
+async function scrapeAppStoreCountryRSS(
   appStoreId: string,
   appId: AppId,
   country: string,
@@ -106,23 +103,38 @@ async function scrapeAppStoreCountry(
 
   for (let page = 1; page <= pages; page++) {
     try {
-      const raw = await store.reviews({
-        id: appStoreId,
-        country,
-        sort: store.sort.RECENT,
-        page,
+      const url =
+        `https://itunes.apple.com/${country}/rss/customerreviews/page=${page}/id=${appStoreId}/sortBy=mostRecent/json`
+
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          Accept: 'application/json',
+        },
+        // 10 s timeout
+        signal: AbortSignal.timeout(10_000),
       })
 
-      const list: any[] = Array.isArray(raw) ? raw : []
-      if (list.length === 0) break
+      if (!res.ok) {
+        console.warn(`[scraper] AppStore RSS ${country} p${page} → HTTP ${res.status}`)
+        break
+      }
 
-      const mapped = list
+      const data = await res.json()
+      const entries: any[] = data?.feed?.entry ?? []
+
+      // First entry is app metadata (no rating field) — skip it on page 1
+      const reviewEntries = page === 1 ? entries.slice(1) : entries
+      if (reviewEntries.length === 0) break
+
+      const mapped = reviewEntries
         .map((r: any, i: number) => ({
-          id: `as_${appId}_${country}_p${page}_${r.id ?? i}`,
-          text: (r.text ?? r.body ?? '').trim(),
-          rating: r.score ?? r.rating ?? 3,
-          date: r.updated
-            ? new Date(r.updated).toISOString()
+          id: `as_${appId}_${country}_p${page}_${r.id?.label ?? i}`,
+          text: (r.content?.label ?? '').trim(),
+          rating: parseInt(r['im:rating']?.label ?? '3', 10),
+          date: r.updated?.label
+            ? new Date(r.updated.label).toISOString()
             : new Date().toISOString(),
           store: 'appstore' as const,
           thumbsUp: 0,
@@ -130,9 +142,9 @@ async function scrapeAppStoreCountry(
         .filter((r: RawReview) => r.text.length > 20)
 
       results.push(...mapped)
-      await sleep(600)
+      await sleep(400)
     } catch (err: any) {
-      console.warn(`[scraper] AppStore ${country} p${page} failed:`, err?.message ?? err)
+      console.warn(`[scraper] AppStore RSS ${country} p${page} failed:`, err?.message ?? err)
       break
     }
   }
