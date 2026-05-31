@@ -61,6 +61,12 @@ export default function ProgressStream({
     const controller = new AbortController()
     abortRef.current = controller
 
+    // Kill the spinner if Vercel times out the function (55s safety margin)
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+      onError('Analysis timed out — try selecting "Android only" or a shorter time window to reduce the workload.')
+    }, 55_000)
+
     async function run() {
       try {
         const res = await fetch('/api/analyse', {
@@ -113,11 +119,13 @@ export default function ProgressStream({
           console.error('[ProgressStream]', err)
           onError(err?.message)
         }
+      } finally {
+        clearTimeout(timeoutId)
       }
     }
 
     run()
-    return () => controller.abort()
+    return () => { controller.abort(); clearTimeout(timeoutId) }
   }, [appId, focusArea, platform, timeFilter, competitors.join(',')])
 
   const handleCancel = () => {

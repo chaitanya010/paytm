@@ -125,16 +125,20 @@ export async function POST(req: NextRequest) {
         if (competitors.length > 0) {
           emit('Running competitive analysis', 'running', 'Tagging competitor reviews...')
 
-          for (const cid of competitors) {
-            const cRaw = rawByApp[cid] ?? []
-            if (cRaw.length === 0) continue
-            const cFiltered = filterRelevantReviews(cRaw, focusArea, RELEVANCE_KEYWORDS)
-            const cTagged = await tagReviews(cFiltered.slice(0, 80), cid, () => {})
-            const cPainPoints = buildPainPoints(cTagged)
-            const cAvgRating = cRaw.reduce((s, r) => s + r.rating, 0) / (cRaw.length || 1)
-            competitorSentiments.push(
-              buildCompetitorSentiment(cid, cTagged, cPainPoints, cRaw.length, Math.round(cAvgRating * 10) / 10)
-            )
+          // Tag all competitors in parallel to stay within the 60s Vercel limit
+          const competitorResults = await Promise.all(
+            competitors.map(async (cid) => {
+              const cRaw = rawByApp[cid] ?? []
+              if (cRaw.length === 0) return null
+              const cFiltered = filterRelevantReviews(cRaw, focusArea, RELEVANCE_KEYWORDS)
+              const cTagged = await tagReviews(cFiltered.slice(0, 40), cid, () => {}, 600)
+              const cPainPoints = buildPainPoints(cTagged)
+              const cAvgRating = cRaw.reduce((s, r) => s + r.rating, 0) / (cRaw.length || 1)
+              return buildCompetitorSentiment(cid, cTagged, cPainPoints, cRaw.length, Math.round(cAvgRating * 10) / 10)
+            })
+          )
+          for (const cs of competitorResults) {
+            if (cs) competitorSentiments.push(cs)
           }
 
           const result = await generateCompetitiveInsights(

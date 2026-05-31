@@ -11,10 +11,11 @@ function sleep(ms: number) {
 export async function tagReviews(
   reviews: RawReview[],
   appId: AppId,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  interBatchMs = 1200,
 ): Promise<TaggedReview[]> {
-  const BATCH = 8        // smaller batches → fewer tokens per request
-  const MAX_REVIEWS = 80 // cap total to stay within TPM limits
+  const BATCH = 10       // slightly larger batches for speed
+  const MAX_REVIEWS = 80
   const input = reviews.slice(0, MAX_REVIEWS)
   const tagged: TaggedReview[] = []
 
@@ -23,7 +24,7 @@ export async function tagReviews(
     const result = await tagBatch(batch, appId)
     tagged.push(...result)
     onProgress?.(Math.min(i + BATCH, input.length), input.length)
-    if (i + BATCH < input.length) await sleep(2000) // 2s gap to avoid TPM burst
+    if (i + BATCH < input.length) await sleep(interBatchMs)
   }
 
   return tagged.filter(r => r.isRelevant)
