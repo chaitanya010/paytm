@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { AppId, PainPoint, TaggedReview, CompetitorSentiment, CompetitiveInsight, SentimentBreakdown } from '@/types'
+// TaggedReview used by buildCompetitorSentiment/buildPaytmSentiment below
 import { APPS } from './constants'
 
 let _client: OpenAI | null = null
@@ -76,22 +77,29 @@ export function buildCompetitorSentiment(
 
 // ── Competitive intelligence (GPT) ───────────────────────────────────────────
 
+export interface PaytmStats {
+  total: number
+  positive: number
+  negative: number
+  neutral: number
+}
+
 export async function generateCompetitiveInsights(
   paytmPainPoints: PainPoint[],
-  paytmTagged: TaggedReview[],
+  paytmStats: PaytmStats,
   competitorSentiments: CompetitorSentiment[],
   timeLabel: string,
 ): Promise<{ insights: CompetitiveInsight[]; sentimentPatterns: Record<string, string[]> }> {
-  const paytmTotal = paytmTagged.length || 1
+  const paytmTotal = paytmStats.total || 1
 
   const paytmSummary = paytmPainPoints.slice(0, 6).map((pp, i) =>
     `${i + 1}. ${pp.title}\n   Frequency: ${pp.frequency} reviews (${Math.round((pp.frequency / paytmTotal) * 100)}% of tagged)\n   Avg severity: ${pp.avgSeverity}/5  Score: ${pp.score}\n   Top verbatim: "${pp.topVerbatims[0] ?? '—'}"`
   ).join('\n')
 
   const paytmSentimentSummary =
-    `Positive: ${Math.round((paytmTagged.filter(r => r.sentiment === 'positive').length / paytmTotal) * 100)}% | ` +
-    `Negative: ${Math.round((paytmTagged.filter(r => r.sentiment === 'negative').length / paytmTotal) * 100)}% | ` +
-    `Neutral: ${Math.round((paytmTagged.filter(r => r.sentiment === 'neutral').length / paytmTotal) * 100)}%`
+    `Positive: ${Math.round((paytmStats.positive / paytmTotal) * 100)}% | ` +
+    `Negative: ${Math.round((paytmStats.negative / paytmTotal) * 100)}% | ` +
+    `Neutral: ${Math.round((paytmStats.neutral / paytmTotal) * 100)}%`
 
   const competitorSummary = competitorSentiments.map(cs => {
     const cTotal = cs.totalReviews || 1

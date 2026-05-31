@@ -61,13 +61,66 @@ export default function ProgressStream({
     const controller = new AbortController()
     abortRef.current = controller
 
-    // Kill the spinner if Vercel times out the function (55s safety margin)
-    const timeoutId = setTimeout(() => {
+    // Per-phase timeout: 55s for phase 1, reset to 55s when phase 2 starts
+    let timeoutId = setTimeout(() => {
       controller.abort()
-      onError('Analysis timed out — try selecting "Android only" or a shorter time window to reduce the workload.')
+      onError('Analysis timed out — try selecting "Android only" or a shorter time window.')
     }, 55_000)
 
+    async function runPhase2(phase1Event: any) {
+      const { slug, competitorRaw, paytmStats, focusArea: fa, timeFilter: tf } = phase1Event
+
+      // Reset timeout for phase 2
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        controller.abort()
+        onError('Competitive analysis timed out — report saved with Paytm data only.')
+        onComplete(slug)
+      }, 55_000)
+
+      setSteps(prev => ({
+        ...prev,
+        'Running competitive analysis': { status: 'running', detail: 'Tagging competitor reviews...' },
+      }))
+
+      try {
+        const res = await fetch('/api/analyse/compete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, competitorRaw, paytmStats, focusArea: fa, timeFilter: tf }),
+          signal: controller.signal,
+        })
+
+        const json = await res.json()
+
+        if (!res.ok || !json.ok) throw new Error(json.error ?? 'Competitive analysis failed')
+
+        setSteps(prev => ({
+          ...prev,
+          'Running competitive analysis': {
+            status: 'done',
+            detail: `${json.insights ?? 0} strategic insights generated`,
+          },
+          'Saving report': { status: 'done', detail: 'Report ready' },
+        }))
+        onComplete(slug)
+      } catch (err: any) {
+        if (err.name === 'AbortError') return
+        // Competitive analysis failed — partial Paytm-only report is still saved
+        setSteps(prev => ({
+          ...prev,
+          'Running competitive analysis': { status: 'error', detail: 'Competitive analysis unavailable' },
+          'Saving report': { status: 'done', detail: 'Paytm analysis saved' },
+        }))
+        onComplete(slug)
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    }
+
     async function run() {
+      let phase1Event: any = null
+
       try {
         const res = await fetch('/api/analyse', {
           method: 'POST',
@@ -96,13 +149,21 @@ export default function ProgressStream({
               const event = JSON.parse(line.slice(6))
               const { step, status, detail, slug } = event
 
+              if (step === 'PHASE1_COMPLETE') {
+                // Stash payload; phase 2 runs after the stream closes below
+                phase1Event = event
+                continue
+              }
+
               if (step === 'COMPLETE') {
+                clearTimeout(timeoutId)
                 if (status === 'done' && slug) onComplete(slug)
                 else onError(detail)
                 return
               }
 
               if (step === 'Error') {
+                clearTimeout(timeoutId)
                 onError(detail)
                 return
               }
@@ -116,11 +177,16 @@ export default function ProgressStream({
         }
       } catch (err: any) {
         if (err.name !== 'AbortError') {
+          clearTimeout(timeoutId)
           console.error('[ProgressStream]', err)
           onError(err?.message)
+          return
         }
-      } finally {
-        clearTimeout(timeoutId)
+      }
+
+      // SSE stream closed — kick off phase 2 if phase 1 handed off data
+      if (phase1Event && !controller.signal.aborted) {
+        await runPhase2(phase1Event)
       }
     }
 

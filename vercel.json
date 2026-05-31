@@ -1,6 +1,7 @@
 {
   "functions": {
     "app/api/analyse/route.ts": { "maxDuration": 60 },
+    "app/api/analyse/compete/route.ts": { "maxDuration": 60 },
     "app/api/analyse-screens/route.ts": { "maxDuration": 60 }
   }
 }
